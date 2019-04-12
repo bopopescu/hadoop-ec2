@@ -10,13 +10,27 @@ HADOOP_HOME = os.getenv('HADOOP_HOME', '/usr/local/hadoop')
 HADOOP_CONF_DIR = os.getenv('HADOOP_CONF_DIR', os.path.join(HADOOP_HOME, 'etc/hadoop'))
 
 
-def init_core_site(name_node='localhost'):
+def init_core_site(name_node='localhost', access_key_id=None, secret_access_key=None):
     conf = ETree.Element('configuration')
+
     prop = ETree.SubElement(conf, 'property')
     name = ETree.SubElement(prop, 'name')
     name.text = 'fs.defaultFS'
     value = ETree.SubElement(prop, 'value')
     value.text = 'hdfs://%s:9000' % name_node
+
+    if access_key_id is not None and secret_access_key is not None:
+        prop2 = ETree.SubElement(conf, 'property')
+        name2 = ETree.SubElement(prop2, 'name')
+        name2.text = 'fs.s3.awsAccessKeyId'
+        value2 = ETree.SubElement(prop2, 'value')
+        value2.text = access_key_id
+
+        prop3 = ETree.SubElement(conf, 'property')
+        name3 = ETree.SubElement(prop3, 'name')
+        name3.text = 'fs.s3.awsSecretAccessKey'
+        value3 = ETree.SubElement(prop3, 'value')
+        value3.text = secret_access_key
 
     conf_data = ETree.tostring(conf, 'utf-8')
     conf_file = os.path.join(HADOOP_CONF_DIR, 'core-site.xml')
@@ -64,6 +78,18 @@ def init_mapred_site(name_node='localhost'):
     value2 = ETree.SubElement(prop2, 'value')
     value2.text = 'yarn'
 
+    prop3 = ETree.SubElement(conf, 'property')
+    name3 = ETree.SubElement(prop3, 'name')
+    name3.text = 'mapreduce.task.tmp.dir'
+    value3 = ETree.SubElement(prop3, 'value')
+    value3.text = os.path.join(HADOOP_HOME, 'data/mr/tmp')
+
+    prop4 = ETree.SubElement(conf, 'property')
+    name4 = ETree.SubElement(prop4, 'name')
+    name4.text = 'mapreduce.cluster.local.dir'
+    value4 = ETree.SubElement(prop4, 'value')
+    value4.text = os.path.join(HADOOP_HOME, 'data/mr/data')
+
     conf_data = ETree.tostring(conf, 'utf-8')
     conf_file = os.path.join(HADOOP_CONF_DIR, 'mapred-site.xml')
     mapred_site = open(conf_file, 'w')
@@ -94,7 +120,7 @@ def init_hdfs_site(is_name_node, is_data_node):
     if is_data_node:
         prop3 = ETree.SubElement(conf, 'property')
         name3 = ETree.SubElement(prop3, 'name')
-        name3.text = 'dfs.namenode.name.dir'
+        name3.text = 'dfs.datanode.data.dir'
         value3 = ETree.SubElement(prop3, 'value')
         data_node_path = os.path.join(HADOOP_HOME, 'data/hdfs/datanode')
         value3.text = 'file://' + data_node_path
@@ -112,18 +138,18 @@ def init_hdfs_site(is_name_node, is_data_node):
 def main():
     parser = OptionParser(
         prog="hadoop-conf",
-        usage="%prog <name-node> <node-type>\n\n")
+        usage="%prog <name-node> <node-type> <aws-access-key-id> <aws-secret-access-key>\n\n")
 
     (opts, args) = parser.parse_args()
-    if len(args) != 2:
+    if len(args) != 4:
         parser.print_help()
         sys.exit(1)
-    (name_node, node_type) = args
+    (name_node, node_type, aws_access_key_id, aws_secret_access_key) = args
 
     is_name_node = 'namenode' in node_type
     is_data_node = 'datanode' in node_type
 
-    init_core_site(name_node)
+    init_core_site(name_node, aws_access_key_id, aws_secret_access_key)
     init_yarn_site(name_node)
     init_mapred_site(name_node)
     init_hdfs_site(is_name_node, is_data_node)

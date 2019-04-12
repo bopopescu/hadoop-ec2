@@ -22,7 +22,7 @@ else:
     raw_input = input
     xrange = range
 
-DEFAULT_AMI_ID = 'ami-0f279aa133a4cbd9d'
+DEFAULT_AMI_ID = 'ami-01e7d52933c219330'
 HADOOP_HOME = os.getenv('HADOOP_HOME', '/usr/local/hadoop')
 HADOOP_CONF_DIR = os.getenv('HADOOP_CONF_DIR', os.path.join(HADOOP_HOME, 'etc/hadoop'))
 HADOOP_EC2_DIR = os.path.dirname(os.path.realpath(__file__))

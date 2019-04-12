@@ -11,12 +11,12 @@ NAMENODE_PATH="${HADOOP_HOME}/data/hdfs/namenode"
 
 pushd ${HADOOP_HOME} > /dev/null
 
-${HOME}/hadoop-ec2/hadoop/hadoop-conf.py "${PUBLIC_DNS}" "namenode_datanode"
+${HOME}/hadoop-ec2/hadoop/hadoop-conf.py "${PUBLIC_DNS}" "namenode_datanode" ${AWS_ACCESS_KEY_ID} ${AWS_SECRET_ACCESS_KEY}
 echo ${SLAVES} > ${HADOOP_HOME}/etc/hadoop/slaves
 
 for node in ${SLAVES} ${OTHER_MASTERS}; do
   echo "Configuring slave node: ${node}"
-  ssh -t -t ${SSH_OPTS} ubuntu@${node} "hadoop-ec2/hadoop/hadoop-conf.py" "${PUBLIC_DNS}" "datanode" & sleep 0.3
+  ssh -t -t ${SSH_OPTS} ubuntu@${node} "hadoop-ec2/hadoop/hadoop-conf.py" "${PUBLIC_DNS}" "datanode" ${AWS_ACCESS_KEY_ID} ${AWS_SECRET_ACCESS_KEY} & sleep 0.3
 done
 wait
 
