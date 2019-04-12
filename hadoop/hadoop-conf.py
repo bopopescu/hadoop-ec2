@@ -82,13 +82,19 @@ def init_mapred_site(name_node='localhost'):
     name3 = ETree.SubElement(prop3, 'name')
     name3.text = 'mapreduce.task.tmp.dir'
     value3 = ETree.SubElement(prop3, 'value')
-    value3.text = os.path.join(HADOOP_HOME, 'data/mr/tmp')
+    tmp_path = os.path.join(HADOOP_HOME, 'data/mr/tmp')
+    value3.text = tmp_path
+    os.makedirs(tmp_path)
+    print("Created directory {}".format(tmp_path))
 
     prop4 = ETree.SubElement(conf, 'property')
     name4 = ETree.SubElement(prop4, 'name')
     name4.text = 'mapreduce.cluster.local.dir'
     value4 = ETree.SubElement(prop4, 'value')
-    value4.text = os.path.join(HADOOP_HOME, 'data/mr/data')
+    data_path = os.path.join(HADOOP_HOME, 'data/mr/data')
+    value4.text = data_path
+    os.makedirs(data_path)
+    print("Created directory {}".format(data_path))
 
     conf_data = ETree.tostring(conf, 'utf-8')
     conf_file = os.path.join(HADOOP_CONF_DIR, 'mapred-site.xml')
