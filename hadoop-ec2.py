@@ -22,7 +22,7 @@ else:
     raw_input = input
     xrange = range
 
-DEFAULT_AMI_ID = 'ami-01e7d52933c219330'
+DEFAULT_AMI_ID = 'ami-08e58d39fdf619dff'
 HADOOP_HOME = os.getenv('HADOOP_HOME', '/usr/local/hadoop')
 HADOOP_CONF_DIR = os.getenv('HADOOP_CONF_DIR', os.path.join(HADOOP_HOME, 'etc/hadoop'))
 HADOOP_EC2_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -243,14 +243,14 @@ def is_cluster_ssh_available(cluster_instances, opts):
 
 
 # Get the EC2 security group of the given name, creating it if it doesn't exist
-def get_or_make_group(conn, name):
+def get_or_make_group(conn, name, vpc_id):
     groups = conn.get_all_security_groups()
     group = [g for g in groups if g.name == name]
     if len(group) > 0:
         return group[0]
     else:
         print("Creating security group " + name)
-        return conn.create_security_group(name, "Hadoop group", None)
+        return conn.create_security_group(name, "Hadoop group", vpc_id)
 
 
 # Gets the IP address
@@ -435,40 +435,44 @@ def launch_cluster(conn, opts, cluster_name):
         print("ERROR: Must provide a key pair name (-k) to use on instances.", file=stderr)
         sys.exit(1)
 
-    print("Setting up security groups...")
-    master_group = get_or_make_group(conn, cluster_name + "-master")
-    slave_group = get_or_make_group(conn, cluster_name + "-slaves")
+    authorized_address = opts.authorized_address
+    vpc_id = opts.vpc_id
+    print("Setting up security groups with authorized address {}, vpc id {}...".format(authorized_address, vpc_id))
+    master_group = get_or_make_group(conn, cluster_name + "-master", vpc_id)
+    slave_group = get_or_make_group(conn, cluster_name + "-slaves", vpc_id)
     if not master_group.rules:  # Group was just now created
-        master_group.authorize(src_group=master_group)
-        master_group.authorize(src_group=slave_group)
-        master_group.authorize('tcp', 22, 22, "0.0.0.0/0")
-        master_group.authorize('tcp', 8080, 8081, "0.0.0.0/0")
-        master_group.authorize('tcp', 18080, 18080, "0.0.0.0/0")
-        master_group.authorize('tcp', 19999, 19999, "0.0.0.0/0")
-        master_group.authorize('tcp', 50030, 50030, "0.0.0.0/0")
-        master_group.authorize('tcp', 50070, 50070, "0.0.0.0/0")
-        master_group.authorize('tcp', 60070, 60070, "0.0.0.0/0")
-        master_group.authorize('tcp', 4040, 4045, "0.0.0.0/0")
-        # Rstudio (GUI for R) needs port 8787 for web access
-        master_group.authorize('tcp', 8787, 8787, "0.0.0.0/0")
+        master_group.authorize(src_group=master_group, ip_protocol='tcp', from_port=0, to_port=65535)
+        master_group.authorize(src_group=master_group, ip_protocol='udp', from_port=0, to_port=65535)
+        master_group.authorize(src_group=slave_group, ip_protocol='tcp', from_port=0, to_port=65535)
+        master_group.authorize(src_group=slave_group, ip_protocol='udp', from_port=0, to_port=65535)
+        master_group.authorize('tcp', 22, 22, authorized_address)
+        master_group.authorize('tcp', 8080, 8081, authorized_address)
+        master_group.authorize('tcp', 18080, 18080, authorized_address)
+        master_group.authorize('tcp', 19999, 19999, authorized_address)
+        master_group.authorize('tcp', 50030, 50030, authorized_address)
+        master_group.authorize('tcp', 50070, 50070, authorized_address)
+        master_group.authorize('tcp', 60070, 60070, authorized_address)
+        master_group.authorize('tcp', 4040, 4045, authorized_address)
         # HDFS NFS gateway requires 111,2049,4242 for tcp & udp
-        master_group.authorize('tcp', 111, 111, "0.0.0.0/0")
-        master_group.authorize('udp', 111, 111, "0.0.0.0/0")
-        master_group.authorize('tcp', 2049, 2049, "0.0.0.0/0")
-        master_group.authorize('udp', 2049, 2049, "0.0.0.0/0")
-        master_group.authorize('tcp', 4242, 4242, "0.0.0.0/0")
-        master_group.authorize('udp', 4242, 4242, "0.0.0.0/0")
+        master_group.authorize('tcp', 111, 111, authorized_address)
+        master_group.authorize('udp', 111, 111, authorized_address)
+        master_group.authorize('tcp', 2049, 2049, authorized_address)
+        master_group.authorize('udp', 2049, 2049, authorized_address)
+        master_group.authorize('tcp', 4242, 4242, authorized_address)
+        master_group.authorize('udp', 4242, 4242, authorized_address)
         # RM in YARN mode uses 8088
-        master_group.authorize('tcp', 8088, 8088, "0.0.0.0/0")
+        master_group.authorize('tcp', 8088, 8088, authorized_address)
     if not slave_group.rules:  # Group was just now created
-        slave_group.authorize(src_group=master_group)
-        slave_group.authorize(src_group=slave_group)
-        slave_group.authorize('tcp', 22, 22, "0.0.0.0/0")
-        slave_group.authorize('tcp', 8080, 8081, "0.0.0.0/0")
-        slave_group.authorize('tcp', 50060, 50060, "0.0.0.0/0")
-        slave_group.authorize('tcp', 50075, 50075, "0.0.0.0/0")
-        slave_group.authorize('tcp', 60060, 60060, "0.0.0.0/0")
-        slave_group.authorize('tcp', 60075, 60075, "0.0.0.0/0")
+        slave_group.authorize(src_group=master_group, ip_protocol='tcp', from_port=0, to_port=65535)
+        slave_group.authorize(src_group=master_group, ip_protocol='udp', from_port=0, to_port=65535)
+        slave_group.authorize(src_group=slave_group, ip_protocol='tcp', from_port=0, to_port=65535)
+        slave_group.authorize(src_group=slave_group, ip_protocol='udp', from_port=0, to_port=65535)
+        slave_group.authorize('tcp', 22, 22, authorized_address)
+        slave_group.authorize('tcp', 8080, 8081, authorized_address)
+        slave_group.authorize('tcp', 50060, 50060, authorized_address)
+        slave_group.authorize('tcp', 50075, 50075, authorized_address)
+        slave_group.authorize('tcp', 60060, 60060, authorized_address)
+        slave_group.authorize('tcp', 60075, 60075, authorized_address)
 
     # Check if instances are already running in our groups
     existing_masters, existing_slaves = get_existing_cluster(conn, cluster_name, die_on_error=False)
@@ -503,7 +507,8 @@ def launch_cluster(conn, opts, cluster_name):
             count=opts.slaves,
             key_name=opts.key_pair,
             security_group_ids=[slave_group.id],
-            instance_type=opts.instance_type)
+            instance_type=opts.instance_type,
+            subnet_id=opts.subnet_id)
         my_req_ids += [req.id for req in slave_reqs]
 
         print("Waiting for spot instances to be granted...")
@@ -545,7 +550,8 @@ def launch_cluster(conn, opts, cluster_name):
             instance_type=opts.instance_type,
             placement=AWS_AZ,
             min_count=opts.slaves,
-            max_count=opts.slaves)
+            max_count=opts.slaves,
+            subnet_id=opts.subnet_id)
         slave_nodes += slave_res.instances
         print("Launched {s} slave{plural_s} in {z}, regid = {r}".format(
             s=opts.slaves,
@@ -570,7 +576,8 @@ def launch_cluster(conn, opts, cluster_name):
             instance_type=master_type,
             placement=AWS_AZ,
             min_count=1,
-            max_count=1)
+            max_count=1,
+            subnet_id=opts.subnet_id)
 
         master_nodes = master_res.instances
         print("Launched master in %s, regid = %s" % (AWS_AZ, master_res.id))
@@ -723,6 +730,15 @@ def parse_args():
     parser.add_option(
         "-a", "--ami",
         help="Amazon Machine Image ID to use")
+    parser.add_option(
+        "--authorized-address", type="string", default="0.0.0.0/0",
+        help="Address to authorize on created security groups (default: %default)")
+    parser.add_option(
+        "--vpc-id", default=None,
+        help="VPC to launch instances in")
+    parser.add_option(
+        "--subnet-id", default=None,
+        help="VPC subnet to launch instances in")
 
     (opts, args) = parser.parse_args()
     if len(args) != 2:

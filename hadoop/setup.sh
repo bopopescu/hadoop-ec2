@@ -1,6 +1,7 @@
 #!/bin/bash
 
 HADOOP_HOME=/usr/local/hadoop
+HADOOP_CONF_DIR=${HADOOP_HOME}/etc/hadoop
 
 # Set hdfs url to make it easier
 HDFS_URL="hdfs://${PUBLIC_DNS}:9000"
@@ -24,7 +25,7 @@ if [[ -f "${NAMENODE_PATH}/current/VERSION" ]] && [[ -f "${NAMENODE_PATH}/curren
   echo "Hadoop namenode appears to be formatted: skipping"
 else
   echo "Formatting HDFS namenode..."
-  ${HADOOP_HOME}/bin/hadoop namenode -format
+  ${HADOOP_HOME}/bin/hdfs namenode -format
 fi
 
 # This is different depending on version.
@@ -32,5 +33,7 @@ echo "Starting HDFS..."
 ${HADOOP_HOME}/sbin/start-dfs.sh
 echo "Starting YARN..."
 ${HADOOP_HOME}/sbin/start-yarn.sh
+echo "Starting History Server..."
+$HADOOP_HOME/sbin/mr-jobhistory-daemon.sh --config ${HADOOP_CONF_DIR} start historyserver
 
 popd > /dev/null
